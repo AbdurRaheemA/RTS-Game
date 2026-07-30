@@ -1,6 +1,8 @@
 --!strict
 local Players = game:GetService("Players")
 
+local PlayerSetupService = {}
+
 local PROXY_POSITION = CFrame.new(0, 0, 0)
 
 local function hideAndFreezeCharacter(character: Model)
@@ -31,19 +33,22 @@ local function hideAndFreezeCharacter(character: Model)
 			descendant.CanQuery = false
 			descendant.CanTouch = false
 		elseif descendant:IsA("Decal") or descendant:IsA("Accessory") then
-			descendant.Parent = nil
+			descendant:Destroy()
 		end
 	end
 end
 
--- Configure player properties when they enter the server
-Players.PlayerAdded:Connect(function(player: Player)
-	player.CharacterAdded:Connect(hideAndFreezeCharacter)
+function PlayerSetupService.start()
+	Players.PlayerAdded:Connect(function(player: Player)
+		player.CharacterAdded:Connect(hideAndFreezeCharacter)
 
-	-- CharacterAutoLoads is intentionally off (SC2-style freecam, no player-controlled
-	-- avatar). We still spawn an invisible, frozen proxy character manually here:
-	-- Roblox's content streaming defaults to following the character's position, and
-	-- StarterGui only copies into PlayerGui on first character spawn - both of which
-	-- we still need even though the player never sees or controls this character.
-	player:LoadCharacterAsync()
-end)
+		-- CharacterAutoLoads is intentionally off (SC2-style freecam, no player-controlled
+		-- avatar). We still spawn an invisible, frozen proxy character manually here:
+		-- Roblox's content streaming defaults to following the character's position, and
+		-- StarterGui only copies into PlayerGui on first character spawn - both of which
+		-- we still need even though the player never sees or controls this character.
+		player:LoadCharacterAsync()
+	end)
+end
+
+return PlayerSetupService

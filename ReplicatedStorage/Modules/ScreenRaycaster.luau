@@ -1,6 +1,7 @@
 --!strict
 
 local Workspace = game:GetService("Workspace")
+local Players = game:GetService("Players")
 
 local ScreenRaycaster = {}
 
@@ -13,6 +14,13 @@ function ScreenRaycaster.raycast(screenPosition: Vector2): RaycastResult?
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
 	params.IgnoreWater = true
+
+	local exclude: { Instance } = {}
+	local localPlayer = Players.LocalPlayer
+	if localPlayer and localPlayer.Character then
+		table.insert(exclude, localPlayer.Character)
+	end
+	params.FilterDescendantsInstances = exclude
 
 	return Workspace:Raycast(
 		ray.Origin,
