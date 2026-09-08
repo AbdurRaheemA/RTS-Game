@@ -19,8 +19,9 @@ function UnitMovementService.start()
 			if not unit:IsDescendantOf(workspace) then
 				continue
 			end
-			-- NOTE: no ownership check yet — Phase 2 adds an Owner attribute
-			-- and restricts this to units owned by `player`.
+			if unit:GetAttribute("OwnerUserId") ~= player.UserId then
+				continue
+			end
 			local humanoid = unit:FindFirstChildOfClass("Humanoid")
 			if humanoid then
 				humanoid:MoveTo(destination)
