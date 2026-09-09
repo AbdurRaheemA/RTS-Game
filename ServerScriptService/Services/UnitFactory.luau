@@ -3,7 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local unitData = require(ReplicatedStorage.Configs.UnitData)
 local UnitFactory = {}
 export type Unit = Model
-function UnitFactory.createUnit(unitType: string, spawnCFrame: CFrame): Unit
+function UnitFactory.createUnit(unitType: string, spawnCFrame: CFrame, owner: Player): Unit
 	local stats = unitData[unitType]
 	assert(stats, `Unknown unit type: {unitType}`)
 	local model = Instance.new("Model")
@@ -25,6 +25,9 @@ function UnitFactory.createUnit(unitType: string, spawnCFrame: CFrame): Unit
 	model:SetAttribute("AttackRange", stats.AttackRange)
 	model:SetAttribute("Cost", stats.Cost)
 	model:SetAttribute("ModelAssetId", stats.ModelAssetId)
+	-- Attributes can't hold an Instance/Player reference directly, so ownership
+	-- is tracked via UserId. UnitMovementService checks this before acting.
+	model:SetAttribute("OwnerUserId", owner.UserId)
 	local unitsFolder = workspace:WaitForChild("Units") :: Folder
 	model.Parent = unitsFolder
 	return model
