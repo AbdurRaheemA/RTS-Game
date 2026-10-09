@@ -19,7 +19,7 @@
  
 ## 2. Current State
  
-### Implemented in code (Studio runtime verification pending)
+### Implemented in code (Phase 1/2 Studio walkthrough passed per user)
 - Scriptable RTS camera, hidden proxy character, and CoreGui suppression.
 - `SelectionUtils` projects unit roots into a drag rectangle. Selection tracks multiple units and creates local highlights.
 - `UnitFactory` creates Swordsman/Archer models with `OwnerUserId`; health is initialized from stats and physics ownership is assigned to the server. Server-side `Humanoid.HealthChanged` deletes the model at zero health. The model `Health` attribute remains static spawn configuration; `Humanoid.Health` is the live value.
@@ -36,12 +36,12 @@
 - Debug output remains ungated (Phase 6).
 - GUI/remotes/Units are Studio-authored; no sync configuration or place file is in this checkout.
 
-### Current goalpost — Phase 2 completion and verification
+### Completed goalpost — Phase 2
 Baseline reviewed: `main` at `6f316d9081d3ee24d48963f49febab12c1c5a0db`.
 Implementation branch: `fix/phase-2-validation`.
-Phase 1 and 2 functionality exists in code. Complete their validation and Studio acceptance checks before starting Phase 3. Checked roadmap items below mean implemented, not runtime-tested.
+Phase 2 is complete: the user confirmed all provided Studio tests passed after the zero-health cleanup fix. Phase 3 has not started and requires explicit instruction. Checked items below identify implemented functionality; verification evidence is recorded separately.
 
-**Acceptance criteria (pending Studio verification):**
+**Acceptance criteria and regression checklist:**
 1. In a two-player Studio session, keys 1/2 spawn the correct owned unit type. Each client selects/highlights only its own live units, by click or drag in all four directions.
 2. Right-click moves selected owned/live units. Direct foreign-unit requests do not move the foreign unit. A mixed array moves only valid owned units; duplicates issue one command.
 3. Nil/non-table/sparse/dictionary/over-200 movement payloads, non-Vector3 or NaN/infinite destinations, non-model instances, units outside `workspace.Units`, unknown unit types, dead units, and destroyed references produce no invalid movement or server errors.
@@ -57,7 +57,9 @@ Phase 1 and 2 functionality exists in code. Complete their validation and Studio
 
 **Verification status:** All 13 repository Luau scripts compiled with the upstream Luau compiler (syntax only; no Roblox-aware type analysis). A temporary harness executed the actual movement/spawn service sources against mocked services: 22 assertions passed for valid requests, foreign ownership, duplicate/mixed arrays, malformed/sparse/oversize payloads, nonfinite destinations, missing/dead/destroyed units, cooldowns, independent player state, cleanup, and idempotent start. `git diff --check` passed. These local checks do not establish Roblox physics or GUI behavior.
 
-**User-reported Studio results:** The initial walkthrough passed except the zero-health test: the user reported units could still move after setting health to zero in the server environment. The exact edited health field and cause have not been confirmed. Targeted payload/cooldown checks beyond the walkthrough remain pending. Added server deletion at zero `Humanoid.Health` and client selection pruning on removal. Both changed scripts compiled; 12 mocked lifecycle assertions passed for healthy/nonlethal units, lethal deletion, static-vs-live health, highlight cleanup, surviving selection, repeated cleanup, and external removal. Studio retest is pending. No Studio tests have been run by the assistant.
+**User-reported Studio results (2026-10-08):** The user confirmed all provided Studio tests passed after the zero-health cleanup fix. This closes the Phase 2 functionality goalpost. The original zero-health failure's exact cause was not independently established. Both cleanup scripts compiled, and 12 mocked lifecycle assertions passed. Exhaustive malformed-payload and exact cooldown cases beyond the provided Studio walkthrough have local mocked coverage, not separately reported Studio evidence. No Studio tests have been run by the assistant.
+
+**Lag investigation:** The user reported movement is responsive and smooth when the observing client is focused; choppiness occurs only after switching away from a client window. This is consistent with background-window throttling in the local Studio test environment. The investigation is closed with no movement/replication code changes. Background throttling is an inference from the observation, not a measured engine diagnosis or a production performance benchmark.
 
 ---
  
@@ -120,6 +122,6 @@ StarterPlayerScripts/
 - UI instances (e.g. `RtsGui`, `SelectionBox`) may be Studio-authored and not represented as files — check before assuming a GUI element needs to be scripted from scratch.
 - When ambiguity exists about where a new file/instance should live in the sync tree, ask before writing code.
 **Known technical debt to track:**
-- Phase 1/2 runtime acceptance checks remain pending.
+- Phase 2 Studio walkthrough passed per user; broader live-network and scale profiling remains future work.
 - `AttackRange` and `Cost` attributes exist on units but are currently inert.
 - Hotkey spawning and UserId-based spawn offsets remain prototype paths until their relevant replacement goalposts.
