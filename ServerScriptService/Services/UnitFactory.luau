@@ -18,7 +18,16 @@ function UnitFactory.createUnit(unitType: string, spawnCFrame: CFrame, owner: Pl
 	model.PrimaryPart = rootPart
 	local humanoid = Instance.new("Humanoid")
 	humanoid.WalkSpeed = stats.Speed
+	humanoid.MaxHealth = stats.Health
+	humanoid.Health = stats.Health
 	humanoid.Parent = model
+	-- Humanoid.Health is the live value; the model's Health attribute is spawn config.
+	-- Remove dead units on the server so removal reaches every client.
+	humanoid.HealthChanged:Connect(function(health: number)
+		if health <= 0 then
+			model:Destroy()
+		end
+	end)
 	model:SetAttribute("UnitType", unitType)
 	model:SetAttribute("Health", stats.Health)
 	model:SetAttribute("Speed", stats.Speed)
@@ -30,6 +39,8 @@ function UnitFactory.createUnit(unitType: string, spawnCFrame: CFrame, owner: Pl
 	model:SetAttribute("OwnerUserId", owner.UserId)
 	local unitsFolder = workspace:WaitForChild("Units") :: Folder
 	model.Parent = unitsFolder
+	-- Keep unit physics on the server, matching server-authoritative commands.
+	rootPart:SetNetworkOwner(nil)
 	return model
 end
 return UnitFactory
