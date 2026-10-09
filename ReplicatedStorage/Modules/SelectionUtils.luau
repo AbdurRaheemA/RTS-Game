@@ -27,8 +27,9 @@ function SelectionUtils.raycastUnitsInScreenRect(topLeft: Vector2, bottomRight: 
 			continue
 		end
 
-		local rootPart = unit.PrimaryPart
-		if not rootPart then
+		local rootPart = unit:FindFirstChild("HumanoidRootPart")
+		local humanoid = unit:FindFirstChildOfClass("Humanoid")
+		if not rootPart or not rootPart:IsA("BasePart") or not humanoid or humanoid.Health <= 0 then
 			continue
 		end
 

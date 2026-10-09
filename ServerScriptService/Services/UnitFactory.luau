@@ -18,6 +18,8 @@ function UnitFactory.createUnit(unitType: string, spawnCFrame: CFrame, owner: Pl
 	model.PrimaryPart = rootPart
 	local humanoid = Instance.new("Humanoid")
 	humanoid.WalkSpeed = stats.Speed
+	humanoid.MaxHealth = stats.Health
+	humanoid.Health = stats.Health
 	humanoid.Parent = model
 	model:SetAttribute("UnitType", unitType)
 	model:SetAttribute("Health", stats.Health)
@@ -30,6 +32,8 @@ function UnitFactory.createUnit(unitType: string, spawnCFrame: CFrame, owner: Pl
 	model:SetAttribute("OwnerUserId", owner.UserId)
 	local unitsFolder = workspace:WaitForChild("Units") :: Folder
 	model.Parent = unitsFolder
+	-- Keep unit physics on the server, matching server-authoritative commands.
+	rootPart:SetNetworkOwner(nil)
 	return model
 end
 return UnitFactory

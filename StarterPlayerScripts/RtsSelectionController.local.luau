@@ -1,4 +1,5 @@
 --!strict
+local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -9,14 +10,16 @@ assert(player, "LocalPlayer is nil")
 --// GUI SAFE BINDING (fixes race conditions)
 local playerGui = player:WaitForChild("PlayerGui")
 local rtsGui = playerGui:WaitForChild("RtsGui", 10)
-if not rtsGui then
+if not rtsGui or not rtsGui:IsA("ScreenGui") then
 	error("RtsGui failed to load into PlayerGui")
 end
 local selectionBoxInstance = rtsGui:WaitForChild("SelectionBox", 10)
-if not selectionBoxInstance then
+if not selectionBoxInstance or not selectionBoxInstance:IsA("Frame") then
 	error("SelectionBox failed to load inside RtsGui")
 end
-local selectionBox = selectionBoxInstance :: Frame
+local selectionBox = selectionBoxInstance
+selectionBox.AnchorPoint = Vector2.zero
+selectionBox.Visible = false
 --// REMOTES
 local MoveUnit = ReplicatedStorage.Remotes:WaitForChild("MoveUnit") :: RemoteEvent
 --// STATE
@@ -45,9 +48,26 @@ local function applyHighlights(units: { Model })
 	end
 end
 
+local function isSelectable(unit: Model): boolean
+	local unitsFolder = workspace:FindFirstChild("Units")
+	local humanoid = unit:FindFirstChildOfClass("Humanoid")
+	local root = unit:FindFirstChild("HumanoidRootPart")
+	return unitsFolder ~= nil and unit.Parent == unitsFolder
+		and typeof(unit:GetAttribute("UnitType")) == "string"
+		and unit:GetAttribute("OwnerUserId") == player.UserId
+		and root ~= nil and root:IsA("BasePart")
+		and humanoid ~= nil and humanoid.Health > 0
+end
+
 local function setSelection(units: { Model })
-	selectedUnits = units
-	applyHighlights(units)
+	local filtered: { Model } = {}
+	for _, unit in ipairs(units) do
+		if isSelectable(unit) then
+			table.insert(filtered, unit)
+		end
+	end
+	selectedUnits = filtered
+	applyHighlights(filtered)
 end
 --// SINGLE UNIT SELECTION (click, no drag)
 local function selectUnit(screenPosition: Vector2)
@@ -77,7 +97,10 @@ local function moveSelectedUnits(screenPosition: Vector2)
 	if not result then
 		return
 	end
-	MoveUnit:FireServer(selectedUnits, result.Position)
+	setSelection(selectedUnits)
+	if #selectedUnits > 0 then
+		MoveUnit:FireServer(selectedUnits, result.Position)
+	end
 end
 --// BOX UPDATE
 local function updateSelectionBox(currentMouse: Vector2)
@@ -85,7 +108,12 @@ local function updateSelectionBox(currentMouse: Vector2)
 	local minY = math.min(dragStart.Y, currentMouse.Y)
 	local width = math.abs(currentMouse.X - dragStart.X)
 	local height = math.abs(currentMouse.Y - dragStart.Y)
-	selectionBox.Position = UDim2.fromOffset(minX, minY)
+	-- Mouse/projection coordinates use the viewport; this GUI may include an inset.
+	local inset = Vector2.zero
+	if not rtsGui.IgnoreGuiInset then
+		inset = GuiService:GetGuiInset()
+	end
+	selectionBox.Position = UDim2.fromOffset(minX - inset.X, minY - inset.Y)
 	selectionBox.Size = UDim2.fromOffset(width, height)
 end
 --// INPUT START
@@ -122,7 +150,7 @@ UserInputService.InputChanged:Connect(function(input)
 end)
 --// INPUT END
 UserInputService.InputEnded:Connect(function(input)
-	if input.UserInputType ~= Enum.UserInputType.MouseButton1 then
+	if input.UserInputType ~= Enum.UserInputType.MouseButton1 or not mouseDown then
 		return
 	end
 	local mousePos = UserInputService:GetMouseLocation()
@@ -134,4 +162,10 @@ UserInputService.InputEnded:Connect(function(input)
 	end
 	mouseDown = false
 	dragging = false
+end)
+
+UserInputService.WindowFocusReleased:Connect(function()
+	mouseDown = false
+	dragging = false
+	selectionBox.Visible = false
 end)
