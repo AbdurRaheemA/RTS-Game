@@ -22,11 +22,11 @@
 ### Implemented in code (Studio runtime verification pending)
 - Scriptable RTS camera, hidden proxy character, and CoreGui suppression.
 - `SelectionUtils` projects unit roots into a drag rectangle. Selection tracks multiple units and creates local highlights.
-- `UnitFactory` creates Swordsman/Archer models with `OwnerUserId`; health is initialized from stats and physics ownership is assigned to the server.
+- `UnitFactory` creates Swordsman/Archer models with `OwnerUserId`; health is initialized from stats and physics ownership is assigned to the server. Server-side `Humanoid.HealthChanged` deletes the model at zero health. The model `Health` attribute remains static spawn configuration; `Humanoid.Health` is the live value.
 - `MoveUnit` accepts a unit array. Server validation checks a bounded dense array, finite destination, direct `workspace.Units` membership, known unit type, ownership, root, and live Humanoid. Duplicate units are ignored.
 - `SpawnUnit` creates owned units through the centrally started `UnitSpawnService`; keys 1/2 request Swordsman/Archer. This is a temporary trigger for the prototype.
 - Movement/spawn requests have per-player cooldowns (0.1s / 0.25s); movement accepts at most 200 array entries.
-- Selection filters owned/live units, prunes stale references before movement, handles focus loss, and offsets the drag display for GUI insets.
+- Selection filters owned/live units, prunes stale references before movement and when selected models leave `workspace.Units`, handles focus loss, and offsets the drag display for GUI insets.
 - The legacy `UnitFactoryTest.legacy.luau` script has been removed.
 
 ### Missing / deferred
@@ -47,7 +47,7 @@ Phase 1 and 2 functionality exists in code. Complete their validation and Studio
 3. Nil/non-table/sparse/dictionary/over-200 movement payloads, non-Vector3 or NaN/infinite destinations, non-model instances, units outside `workspace.Units`, unknown unit types, dead units, and destroyed references produce no invalid movement or server errors.
 4. Requests inside the cooldown do no extra work; a valid request after the cooldown succeeds. Invalid spawn types are rejected. Leaving a session clears limiter state.
 5. The drag frame tracks the cursor with `RtsGui.IgnoreGuiInset` both true and false. GUI-consumed clicks do not select on mouse-up; losing window focus cancels the drag.
-6. Confirm unit health matches config and server network ownership remains in effect. Confirm actual locomotion on the current Studio-authored ground; a `MoveTo` call alone does not establish that the prototype rig can walk.
+6. In the server Explorer, set `Workspace.Units.<unit>.Humanoid.Health` to zero (not the model Health attribute). The model and its highlight must disappear on both clients, including during an existing movement command. Remaining selected units must continue to accept movement without errors. Confirm unit health matches config and server network ownership remains in effect. Confirm actual locomotion on the current Studio-authored ground; a `MoveTo` call alone does not establish that the prototype rig can walk.
 
 **Manual Studio requirements (verify existing instances; no new instances required):**
 - `Workspace.Units` — Folder.
@@ -55,7 +55,9 @@ Phase 1 and 2 functionality exists in code. Complete their validation and Studio
 - `StarterGui.RtsGui` — ScreenGui, with direct child `SelectionBox` — Frame. Keep it free of layout/size constraints that override drag positioning; the client sets AnchorPoint to zero and initializes Visible=false.
 - Existing script paths map directly to the named services; repository `StarterPlayerScripts` corresponds to Studio `StarterPlayer.StarterPlayerScripts`.
 
-**Verification status:** All 13 repository Luau scripts compiled with the upstream Luau compiler (syntax only; no Roblox-aware type analysis). A temporary harness executed the actual movement/spawn service sources against mocked services: 22 assertions passed for valid requests, foreign ownership, duplicate/mixed arrays, malformed/sparse/oversize payloads, nonfinite destinations, missing/dead/destroyed units, cooldowns, independent player state, cleanup, and idempotent start. `git diff --check` passed. No Studio runtime or multiplayer tests have been run; these local checks do not establish Roblox physics or GUI behavior.
+**Verification status:** All 13 repository Luau scripts compiled with the upstream Luau compiler (syntax only; no Roblox-aware type analysis). A temporary harness executed the actual movement/spawn service sources against mocked services: 22 assertions passed for valid requests, foreign ownership, duplicate/mixed arrays, malformed/sparse/oversize payloads, nonfinite destinations, missing/dead/destroyed units, cooldowns, independent player state, cleanup, and idempotent start. `git diff --check` passed. These local checks do not establish Roblox physics or GUI behavior.
+
+**User-reported Studio results:** The initial walkthrough passed except the zero-health test: the user reported units could still move after setting health to zero in the server environment. The exact edited health field and cause have not been confirmed. Targeted payload/cooldown checks beyond the walkthrough remain pending. Added server deletion at zero `Humanoid.Health` and client selection pruning on removal. Both changed scripts compiled; 12 mocked lifecycle assertions passed for healthy/nonlethal units, lethal deletion, static-vs-live health, highlight cleanup, surviving selection, repeated cleanup, and external removal. Studio retest is pending. No Studio tests have been run by the assistant.
 
 ---
  
@@ -67,7 +69,7 @@ Phase 1 and 2 functionality exists in code. Complete their validation and Studio
 ### Phase 1 — Core Multi-Selection Loop
 - [x] Implement `SelectionUtils.raycastUnitsInScreenRect(topLeft, bottomRight)`: iterate `workspace.Units`, project each unit's `HumanoidRootPart` via `Camera:WorldToViewportPoint`, test against the drag rect.
 - [x] Extend `RtsSelectionController` to track `selectedUnits: {Model}` (not a single `Model?`), wire drag-release into the new util.
-- [x] Add selection visual feedback (highlight/outline) — currently no in-world indicator beyond a console `print`.
+- [x] Add selection visual feedback through client-created highlights.
 - [x] Update `MoveUnit` remote signature to accept an array of units; server validates each is a real, live unit under `workspace.Units` before acting.
 ### Phase 2 — Server-Authoritative Unit Ownership
 - [x] Add numeric `OwnerUserId` at spawn time in `UnitFactory` (attributes cannot store Player instances).
@@ -96,7 +98,7 @@ Phase 1 and 2 functionality exists in code. Complete their validation and Studio
  
 **Architecture rules:**
 - All new modules use `--!strict`.
-- Server logic never trusts client-supplied Instance references without validating existence, type, and ownership (see Phase 1/2 — this is a known current gap in `UnitMovementService`).
+- Server logic never trusts client-supplied Instance references without validating existence, type, and ownership.
 - Shared config (unit stats, costs, etc.) lives in `ReplicatedStorage/Configs`, is `table.freeze`'d, and is validated at module load (see `UnitData.luau` pattern — replicate this for any new data tables).
 - Services follow the `Service.start()` table-module pattern; wire-up happens centrally in `RtsServerInit.server.luau` (server) — no service should self-start on `require`.
 - Remotes live under `ReplicatedStorage.Remotes`, fetched via `WaitForChild`, typed with `:: RemoteEvent` / `:: RemoteFunction`.

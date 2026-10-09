@@ -21,6 +21,13 @@ function UnitFactory.createUnit(unitType: string, spawnCFrame: CFrame, owner: Pl
 	humanoid.MaxHealth = stats.Health
 	humanoid.Health = stats.Health
 	humanoid.Parent = model
+	-- Humanoid.Health is the live value; the model's Health attribute is spawn config.
+	-- Remove dead units on the server so removal reaches every client.
+	humanoid.HealthChanged:Connect(function(health: number)
+		if health <= 0 then
+			model:Destroy()
+		end
+	end)
 	model:SetAttribute("UnitType", unitType)
 	model:SetAttribute("Health", stats.Health)
 	model:SetAttribute("Speed", stats.Speed)

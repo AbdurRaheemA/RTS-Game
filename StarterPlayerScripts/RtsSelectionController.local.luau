@@ -69,6 +69,14 @@ local function setSelection(units: { Model })
 	selectedUnits = filtered
 	applyHighlights(filtered)
 end
+-- Server deletion (or removal from Units) clears selection immediately on this client.
+local unitsFolder = workspace:WaitForChild("Units")
+unitsFolder.ChildRemoved:Connect(function(unit: Instance)
+	if unit:IsA("Model") and activeHighlights[unit] then
+		setSelection(selectedUnits)
+	end
+end)
+
 --// SINGLE UNIT SELECTION (click, no drag)
 local function selectUnit(screenPosition: Vector2)
 	local result = ScreenRaycaster.raycast(screenPosition)
